@@ -14,11 +14,19 @@ export interface SingleSpaAngularOptions<T = {}> extends BaseSingleSpaAngularOpt
   bootstrapFunction(props: AppProps & T): Promise<NgModuleRef<any>>;
 }
 
-export interface BootstrappedSingleSpaAngularOptions extends SingleSpaAngularOptions {
+export interface BootstrappedSingleSpaAngularOptionsInstance {
   bootstrappedModule: NgModuleRef<any> | null;
   // All below properties can be optional in case of
   // `SingleSpaAngularOpts.NgZone` is a `noop` string and not an `NgZone` class.
   bootstrappedNgZone?: NgZone;
   routingEventListener?: () => void;
   zoneIdentifier?: string;
+}
+
+export interface BootstrappedSingleSpaAngularOptionsInstances {
+  [name: string]: BootstrappedSingleSpaAngularOptionsInstance;
+}
+
+export interface BootstrappedSingleSpaAngularOptions extends SingleSpaAngularOptions {
+  instances: BootstrappedSingleSpaAngularOptionsInstances;
 }

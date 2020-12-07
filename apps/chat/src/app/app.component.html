@@ -1,5 +1,15 @@
 <h1 class="title is-1">This is /chat page!</h1>
 
+<p>
+  Parcel should mount multiple times
+  <a href="https://github.com/single-spa/single-spa-angular/issues/234">#234</a>
+</p>
+
+<div *ngIf="config" class="parcel-wrapper">
+  <parcel [config]="config" [mountParcel]="mountRootParcel"></parcel>
+  <parcel [config]="config" [mountParcel]="mountRootParcel"></parcel>
+</div>
+
 <button class="button" (click)="goToChatGroups()">Go to /chat/groups</button>
 
 <router-outlet></router-outlet>

@@ -59,6 +59,10 @@ export function singleSpaAngular<T>(userOptions: SingleSpaAngularOptions<T>): Li
 }
 
 async function bootstrap(options: BootstrappedSingleSpaAngularOptions, props: any): Promise<void> {
+  options.instances = options.instances || {};
+  const instance = (options.instances[props.name || props.appName] =
+    options.instances[props.name || props.appName] || {});
+
   // Angular provides an opportunity to develop `zone-less` application, where developers
   // have to trigger change detection manually.
   // See https://angular.io/guide/zone#noopzone
@@ -67,7 +71,7 @@ async function bootstrap(options: BootstrappedSingleSpaAngularOptions, props: an
   }
 
   // In order for multiple Angular apps to work concurrently on a page, they each need a unique identifier.
-  options.zoneIdentifier = `single-spa-angular:${props.name || props.appName}`;
+  instance.zoneIdentifier = `single-spa-angular:${props.name || props.appName}`;
 
   // This is a hack, since NgZone doesn't allow you to configure the property that identifies your zone.
   // See https://github.com/PlaceMe-SAS/single-spa-angular-cli/issues/33,
@@ -76,11 +80,11 @@ async function bootstrap(options: BootstrappedSingleSpaAngularOptions, props: an
   // and https://github.com/angular/angular/blob/a14dc2d7a4821a19f20a9547053a5734798f541e/packages/core/src/zone/ng_zone.ts#L257
   options.NgZone.isInAngularZone = () => {
     // @ts-ignore
-    return window.Zone.current._properties[options.zoneIdentifier] === true;
+    return window.Zone.current._properties[instance.zoneIdentifier] === true;
   };
 
-  options.routingEventListener = () => {
-    options.bootstrappedNgZone!.run(() => {
+  instance.routingEventListener = () => {
+    instance.bootstrappedNgZone!.run(() => {
       // See https://github.com/single-spa/single-spa-angular/issues/86
       // Zone is unaware of the single-spa navigation change and so Angular change detection doesn't work
       // unless we tell Zone that something happened
@@ -125,10 +129,13 @@ async function mount(options: SingleSpaAngularOptions, props: any): Promise<NgMo
   }
 
   const bootstrappedOptions = options as BootstrappedSingleSpaAngularOptions;
+  bootstrappedOptions.instances = bootstrappedOptions.instances || {};
+  const bootstrappedOptionsInstance =
+    bootstrappedOptions.instances[props.name || props.appName] || {};
 
   if (ngZoneEnabled) {
     const ngZone: NgZone = module.injector.get(options.NgZone);
-    const zoneIdentifier: string = bootstrappedOptions.zoneIdentifier!;
+    const zoneIdentifier: string = bootstrappedOptionsInstance.zoneIdentifier!;
 
     // `NgZone` can be enabled but routing may not be used thus `getSingleSpaExtraProviders()`
     // function was not called.
@@ -142,25 +149,33 @@ async function mount(options: SingleSpaAngularOptions, props: any): Promise<NgMo
       });
     }
 
-    bootstrappedOptions.bootstrappedNgZone = ngZone;
-    bootstrappedOptions.bootstrappedNgZone['_inner']._properties[zoneIdentifier] = true;
-    window.addEventListener('single-spa:routing-event', bootstrappedOptions.routingEventListener!);
+    bootstrappedOptionsInstance.bootstrappedNgZone = ngZone;
+    bootstrappedOptionsInstance.bootstrappedNgZone['_inner']._properties[zoneIdentifier] = true;
+    window.addEventListener(
+      `single-spa:routing-event-${props.name || props.appName}`,
+      bootstrappedOptionsInstance.routingEventListener!,
+    );
   }
 
-  bootstrappedOptions.bootstrappedModule = module;
+  bootstrappedOptionsInstance.bootstrappedModule = module;
   return module;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function unmount(options: BootstrappedSingleSpaAngularOptions, props: any): Promise<void> {
+  const instance = options.instances[props.name || props.appName] || {};
+
   if (options.Router) {
     // Workaround for https://github.com/angular/angular/issues/19079
-    const router = options.bootstrappedModule!.injector.get(options.Router);
+    const router = instance.bootstrappedModule!.injector.get(options.Router);
     router.dispose();
   }
 
-  if (options.routingEventListener) {
-    window.removeEventListener('single-spa:routing-event', options.routingEventListener);
+  if (instance.routingEventListener) {
+    window.removeEventListener(
+      `single-spa:routing-event-${props.name || props.appName}`,
+      instance.routingEventListener,
+    );
   }
 
   if (options.AnimationEngine) {
@@ -188,12 +203,12 @@ async function unmount(options: BootstrappedSingleSpaAngularOptions, props: any)
     that cannot be imported and is not provided to the dependency injector. So, instead, we get its wrapper class, AnimationEngine, and then
     access its private variable reference to the TransitionAnimationEngine so that we can call flush.
     */
-    const animationEngine = options.bootstrappedModule!.injector.get(options.AnimationEngine);
+    const animationEngine = instance.bootstrappedModule!.injector.get(options.AnimationEngine);
     animationEngine._transitionEngine.flush();
   }
 
-  options.bootstrappedModule!.destroy();
-  options.bootstrappedModule = null;
+  instance.bootstrappedModule!.destroy();
+  instance.bootstrappedModule = null;
 
   // TODO: this is not an issue anymore and should be removed in the future.
   removeApplicationFromDOMIfIvyEnabled(options, props);
